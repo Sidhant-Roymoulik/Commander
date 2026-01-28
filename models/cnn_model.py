@@ -175,7 +175,6 @@ def predict_board(
         probs: np.ndarray shape (H, W) with values in [0, 1]
     """
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
     model.to(device)
     model.eval()
 
