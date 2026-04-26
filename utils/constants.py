@@ -1,6 +1,5 @@
 # Board symbols
 WATER = "~"
-SHIP = "S"
 HIT = "X"
 MISS = "O"
 
@@ -16,5 +15,3 @@ SHIP_EMPTY = 0
 
 # ML Representation constants
 ML_DTYPE = "float32"
-ML_OCCUPIED = 1.0  # Normalized value for occupied/hit/miss
-ML_EMPTY = 0.0  # Normalized value for empty

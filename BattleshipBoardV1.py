@@ -21,6 +21,10 @@ class BattleshipBoardV1:
         cols: int = DEFAULT_COLS,
         ship_sizes: Optional[List[int]] = None,
     ) -> None:
+        if not isinstance(rows, int) or rows <= 0:
+            raise ValueError(f"rows must be a positive integer, got {rows!r}")
+        if not isinstance(cols, int) or cols <= 0:
+            raise ValueError(f"cols must be a positive integer, got {cols!r}")
         self.rows: int = rows
         self.cols: int = cols
         # Use NumPy arrays as canonical storage for performance and ML friendliness
@@ -79,6 +83,11 @@ class BattleshipBoardV1:
         Tries up to 100 times to find a valid placement.
         Raises ValueError if unable to place ship after max attempts.
         """
+        if ship_size > self.cols and ship_size > self.rows:
+            raise ValueError(
+                f"ship_size {ship_size} exceeds both board dimensions "
+                f"({self.rows} rows, {self.cols} cols) — cannot place ship"
+            )
         max_attempts = 100
         for _ in range(max_attempts):
             # Random orientation: 0 = horizontal, 1 = vertical

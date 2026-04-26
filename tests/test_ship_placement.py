@@ -166,6 +166,47 @@ def test_display_ships() -> None:
     print("\n✓ test_display_ships passed")
 
 
+def test_init_invalid_rows() -> None:
+    """Test that __init__ raises ValueError for invalid rows."""
+    for bad in [0, -1]:
+        try:
+            BattleshipBoardV1(rows=bad, cols=10, ship_sizes=[])
+            assert False, f"Expected ValueError for rows={bad}"
+        except ValueError as e:
+            assert "rows" in str(e).lower(), f"Error message should mention 'rows': {e}"
+    print("✓ test_init_invalid_rows passed")
+
+
+def test_init_invalid_cols() -> None:
+    """Test that __init__ raises ValueError for invalid cols."""
+    for bad in [0, -1]:
+        try:
+            BattleshipBoardV1(rows=10, cols=bad, ship_sizes=[])
+            assert False, f"Expected ValueError for cols={bad}"
+        except ValueError as e:
+            assert "cols" in str(e).lower(), f"Error message should mention 'cols': {e}"
+    print("✓ test_init_invalid_cols passed")
+
+
+def test_place_ship_randomly_oversized() -> None:
+    """Test that _place_ship_randomly raises descriptive error when ship exceeds both dims."""
+    try:
+        BattleshipBoardV1(rows=3, cols=3, ship_sizes=[10])
+        assert False, "Expected ValueError for oversized ship"
+    except ValueError as e:
+        assert "exceeds" in str(e).lower() or "ship_size" in str(e).lower(), (
+            f"Error should describe the size problem: {e}"
+        )
+    print("✓ test_place_ship_randomly_oversized passed")
+
+
+def test_place_ship_randomly_fits_one_dimension() -> None:
+    """Test that ship fitting in at least one dimension does not raise the early guard."""
+    board = BattleshipBoardV1(rows=3, cols=10, ship_sizes=[5])
+    assert len(board.ships) == 1
+    print("✓ test_place_ship_randomly_fits_one_dimension passed")
+
+
 if __name__ == "__main__":
     test_default_ship_sizes()
     test_custom_ship_sizes()
@@ -177,5 +218,9 @@ if __name__ == "__main__":
     test_rectangular_board()
     test_small_board_with_large_ships()
     test_display_ships()
+    test_init_invalid_rows()
+    test_init_invalid_cols()
+    test_place_ship_randomly_oversized()
+    test_place_ship_randomly_fits_one_dimension()
 
     print("\n✅ All ship placement tests passed!")

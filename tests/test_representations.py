@@ -4,7 +4,6 @@ from typing import List
 import numpy as np
 from BattleshipBoardV1 import BattleshipBoardV1
 from utils.representation_utils import (
-    board_to_tensor,
     tensor_to_board,
     batch_boards_to_tensors,
     batch_tensors_to_boards,
@@ -92,25 +91,25 @@ def test_from_numpy_array_wrong_shape() -> None:
         print("✓ test_from_numpy_array_wrong_shape passed")
 
 
-def test_board_to_tensor_wrapper() -> None:
-    """Test wrapper function board_to_tensor."""
+def test_board_to_numpy_array_direct() -> None:
+    """Test board.to_numpy_array() directly."""
     board = BattleshipBoardV1(rows=6, cols=6, ship_sizes=[])
     board.place_ship(0, 0, 0, 3)
-    tensor = board_to_tensor(board)
+    tensor = board.to_numpy_array()
 
     assert tensor.shape == (6, 6, 3)
     assert np.sum(tensor[:, :, 0]) == 4.0  # 4 ship cells
-    print("✓ test_board_to_tensor_wrapper passed")
+    print("✓ test_board_to_numpy_array_direct passed")
 
 
 def test_tensor_to_board_wrapper() -> None:
     """Test wrapper function tensor_to_board."""
     board1 = BattleshipBoardV1(rows=7, cols=7, ship_sizes=[])
     board1.place_ship(0, 0, 3, 0)  # Vertical
-    tensor = board_to_tensor(board1)
+    tensor = board1.to_numpy_array()
     board2 = tensor_to_board(tensor, rows=7, cols=7)
 
-    tensor2 = board_to_tensor(board2)
+    tensor2 = board2.to_numpy_array()
     assert np.allclose(tensor, tensor2)
     print("✓ test_tensor_to_board_wrapper passed")
 
@@ -181,7 +180,7 @@ def test_get_board_stats() -> None:
     board.attack(2, 2)  # Miss
 
     stats = get_board_stats(board)
-    assert stats["num_ships"] == 5.0, f"Expected 5 ships, got {stats['num_ships']}"
+    assert stats["num_ships"] == 5.0, f"Expected 5 occupied ship cells, got {stats['num_ships']}"
     assert stats["num_hits"] == 2, f"Expected 2 hits, got {stats['num_hits']}"
     assert stats["num_misses"] == 1, f"Expected 1 miss, got {stats['num_misses']}"
     assert (
@@ -207,6 +206,49 @@ def test_rectangular_board() -> None:
     print("✓ test_rectangular_board passed")
 
 
+def test_attack_out_of_bounds() -> None:
+    """Test that attack() raises ValueError for out-of-bounds coordinates."""
+    board = BattleshipBoardV1(rows=5, cols=5, ship_sizes=[])
+    for row, col in [(-1, 0), (0, -1), (5, 0), (0, 5), (10, 10)]:
+        try:
+            board.attack(row, col)
+            assert False, f"Expected ValueError for ({row}, {col})"
+        except ValueError as e:
+            assert "bounds" in str(e).lower(), f"Error should mention bounds: {e}"
+    print("✓ test_attack_out_of_bounds passed")
+
+
+def test_attack_already_attacked() -> None:
+    """Test that attacking the same cell twice raises ValueError."""
+    board = BattleshipBoardV1(rows=5, cols=5, ship_sizes=[])
+    board.attack(2, 2)
+    try:
+        board.attack(2, 2)
+        assert False, "Expected ValueError for re-attacking (2, 2)"
+    except ValueError as e:
+        assert "already" in str(e).lower(), f"Error should mention 'already': {e}"
+    print("✓ test_attack_already_attacked passed")
+
+
+def test_attack_miss_sets_misses() -> None:
+    """Test that attacking a water cell marks it in misses."""
+    board = BattleshipBoardV1(rows=5, cols=5, ship_sizes=[])
+    board.attack(3, 3)
+    assert bool(board.misses[3, 3]), "misses[3,3] should be True after water attack"
+    assert not bool(board.hits[3, 3]), "hits[3,3] should remain False"
+    print("✓ test_attack_miss_sets_misses passed")
+
+
+def test_attack_hit_sets_hits() -> None:
+    """Test that attacking a ship cell marks it in hits."""
+    board = BattleshipBoardV1(rows=5, cols=5, ship_sizes=[])
+    board.place_ship(1, 1, 1, 3)
+    board.attack(1, 2)
+    assert bool(board.hits[1, 2]), "hits[1,2] should be True after ship attack"
+    assert not bool(board.misses[1, 2]), "misses[1,2] should remain False"
+    print("✓ test_attack_hit_sets_hits passed")
+
+
 if __name__ == "__main__":
     test_to_numpy_array_shape()
     test_to_numpy_array_empty_board()
@@ -214,7 +256,7 @@ if __name__ == "__main__":
     test_to_numpy_array_with_attack()
     test_from_numpy_array_roundtrip()
     test_from_numpy_array_wrong_shape()
-    test_board_to_tensor_wrapper()
+    test_board_to_numpy_array_direct()
     test_tensor_to_board_wrapper()
     test_batch_boards_to_tensors()
     test_batch_tensors_to_boards()
@@ -222,5 +264,9 @@ if __name__ == "__main__":
     test_denormalize_tensor()
     test_get_board_stats()
     test_rectangular_board()
+    test_attack_out_of_bounds()
+    test_attack_already_attacked()
+    test_attack_miss_sets_misses()
+    test_attack_hit_sets_hits()
 
     print("\n✅ All tests passed!")

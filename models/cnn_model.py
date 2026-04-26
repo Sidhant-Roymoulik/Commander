@@ -12,7 +12,7 @@ try:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
-    from torch.utils.data import Dataset, DataLoader
+    from torch.utils.data import Dataset, DataLoader, TensorDataset
 except Exception as e:
     raise ImportError(
         "PyTorch is required for cnn_model. Install with `pip install torch`"
@@ -38,25 +38,28 @@ class ShipProbCNN(nn.Module):
         return x.squeeze(1)  # (B, H, W)
 
 
-class NumpyBoardDataset(Dataset):
-    """Dataset wrapping numpy arrays.
+def make_dataset(inputs: np.ndarray, targets: np.ndarray) -> "TensorDataset":
+    """Wrap numpy arrays in a TensorDataset. NHWC inputs are transposed to NCHW."""
+    inp = inputs.copy()
+    if inp.ndim == 4 and inp.shape[-1] in (1, 2, 3):
+        inp = np.transpose(inp, (0, 3, 1, 2))
+    return TensorDataset(
+        torch.from_numpy(inp.astype(np.float32)),
+        torch.from_numpy(targets.astype(np.float32)),
+    )
 
-    inputs: np.ndarray shape (N, H, W, C) or (N, C, H, W)
-    targets: np.ndarray shape (N, H, W) binary or float
-    """
 
-    def __init__(self, inputs: np.ndarray, targets: np.ndarray):
-        if inputs.ndim == 4 and inputs.shape[-1] in (1, 2, 3):
-            # convert NHWC -> NCHW
-            inputs = np.transpose(inputs, (0, 3, 1, 2))
-        self.inputs = inputs.astype(np.float32)
-        self.targets = targets.astype(np.float32)
-
-    def __len__(self):
-        return len(self.inputs)
-
-    def __getitem__(self, idx):
-        return torch.from_numpy(self.inputs[idx]), torch.from_numpy(self.targets[idx])
+def _run_eval(model: "nn.Module", loader: "DataLoader", criterion: "nn.Module", device: str) -> float:
+    """Run one evaluation pass over loader, return average loss."""
+    model.eval()
+    loss_accum = 0.0
+    with torch.no_grad():
+        for xb, yb in loader:
+            xb, yb = xb.to(device), yb.to(device)
+            if xb.ndim == 3:
+                xb = xb.unsqueeze(1)
+            loss_accum += float(criterion(model(xb), yb).item()) * xb.size(0)
+    return loss_accum / len(loader.dataset)
 
 
 def train_model(
@@ -118,37 +121,13 @@ def train_model(
         # validation
         avg_val_loss = None
         if val_loader is not None:
-            model.eval()
-            val_loss_accum = 0.0
-            with torch.no_grad():
-                for xb_val, yb_val in val_loader:
-                    xb_val = xb_val.to(device)
-                    yb_val = yb_val.to(device)
-                    if xb_val.ndim == 3:
-                        xb_val = xb_val.unsqueeze(1)
-                    logits_val = model(xb_val)
-                    loss_val = criterion(logits_val, yb_val)
-                    val_loss_accum += float(loss_val.item()) * xb_val.size(0)
-
-            avg_val_loss = val_loss_accum / len(val_loader.dataset)
+            avg_val_loss = _run_eval(model, val_loader, criterion, device)
             history["val"].append(avg_val_loss)
 
         # test
         avg_test_loss = None
         if test_loader is not None:
-            model.eval()
-            test_loss_accum = 0.0
-            with torch.no_grad():
-                for xb_test, yb_test in test_loader:
-                    xb_test = xb_test.to(device)
-                    yb_test = yb_test.to(device)
-                    if xb_test.ndim == 3:
-                        xb_test = xb_test.unsqueeze(1)
-                    logits_test = model(xb_test)
-                    loss_test = criterion(logits_test, yb_test)
-                    test_loss_accum += float(loss_test.item()) * xb_test.size(0)
-
-            avg_test_loss = test_loss_accum / len(test_loader.dataset)
+            avg_test_loss = _run_eval(model, test_loader, criterion, device)
             history["test"].append(avg_test_loss)
 
         # reporting

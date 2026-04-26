@@ -4,20 +4,7 @@ from typing import List, Dict, Any
 import numpy as np
 from numpy.typing import NDArray
 from BattleshipBoardV1 import BattleshipBoardV1
-from utils.constants import DEFAULT_ROWS, DEFAULT_COLS, ML_OCCUPIED, ML_EMPTY
-
-
-def board_to_tensor(board: BattleshipBoardV1) -> NDArray[Any]:
-    """
-    Convert a single BattleshipBoard to its tensor representation.
-    Wrapper around board.to_numpy_array() for consistency.
-
-    Args:
-        board: BattleshipBoardV1 instance
-    Returns:
-        np.ndarray of shape (rows, cols, 3) with dtype float32
-    """
-    return board.to_numpy_array()
+from utils.constants import DEFAULT_ROWS, DEFAULT_COLS
 
 
 def tensor_to_board(
@@ -49,15 +36,7 @@ def batch_boards_to_tensors(boards: List[BattleshipBoardV1]) -> NDArray[Any]:
     """
     if not boards:
         raise ValueError("boards list is empty")
-
-    batch_size = len(boards)
-    rows, cols = boards[0].rows, boards[0].cols
-
-    batch_array = np.zeros((batch_size, rows, cols, 3), dtype="float32")
-    for i, board in enumerate(boards):
-        batch_array[i] = board.to_numpy_array()
-
-    return batch_array
+    return np.stack([b.to_numpy_array() for b in boards])
 
 
 def batch_tensors_to_boards(batch_array: NDArray[Any]) -> List[BattleshipBoardV1]:
@@ -99,7 +78,7 @@ def normalize_tensor(array: NDArray[Any]) -> NDArray[Any]:
     Returns:
         np.ndarray clipped to [0.0, 1.0]
     """
-    return np.clip(array, ML_EMPTY, ML_OCCUPIED).astype("float32")
+    return np.clip(array, 0.0, 1.0).astype("float32")
 
 
 def denormalize_tensor(array: NDArray[Any], scale: float = 255.0) -> NDArray[Any]:
