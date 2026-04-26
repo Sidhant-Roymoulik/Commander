@@ -50,9 +50,9 @@ The model never sees the ship channel at inference time — only hits and misses
 - **`BattleshipBoardV1.py`** — Core game class. Three NumPy arrays track state: `ship_board` (integer ship IDs), `hits`, `misses` (booleans). `to_numpy_array()` / `from_numpy_array()` handle ML conversion.
 - **`utils/constants.py`** — Board symbols, default 10×10 size, default ship sizes `[2,3,3,4,5]`, `float32` dtype, normalized range `[0.0, 1.0]`.
 - **`utils/representation_utils.py`** — Batch tensor conversion, normalization/denormalization, board statistics.
-- **`models/cnn_model.py`** — `ShipProbCNN` (5-layer encoder-decoder CNN), `NumpyBoardDataset`, training loop, `predict_board()` inference function. Loss: `BCEWithLogitsLoss`.
-- **`notebooks/ship_prediction.ipynb`** — Trains on 100k synthetic boards; runs grid search over lr ∈ {8e-4, 1e-3, 1.2e-3} and hidden units ∈ {48, 64, 96}.
-- **`notebooks/models/cnn_lr_0.0008_hidden_96.pt`** — Best trained weights (lr=0.0008, hidden=96, val loss ≈ 0.168).
+- **`models/cnn_model.py`** — `ShipProbCNN` (5-layer encoder-decoder CNN), `make_dataset()`, training loop, `predict_board()` inference function. Loss: `BCEWithLogitsLoss`.
+- **`notebooks/ship_prediction.ipynb`** — Trains on 100k synthetic boards; runs grid search over lr ∈ {8e-4, 1e-3, 1.2e-3} and hidden units ∈ {48, 64, 96, 128}.
+- **`notebooks/models/cnn_lr_0.001_hidden_128.pt`** — Best trained weights (lr=0.001, hidden=128).
 
 ### CNN Architecture
 
@@ -62,7 +62,7 @@ Input: [batch, 2, H, W]  (hits channel, misses channel)
 Output: [batch, 1, H, W]  (logits; apply sigmoid for probabilities)
 ```
 
-`h` is the `hidden_size` hyperparameter (best: 96).
+`h` is the `hidden_size` hyperparameter (best: 128).
 
 ## Design Notes
 

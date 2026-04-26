@@ -147,6 +147,11 @@ class BattleshipBoardV1:
         else:
             self.hits[row, col] = True
 
+    def all_ships_sunk(self) -> bool:
+        """Return True if every ship cell has been hit."""
+        ship_cells = self.ship_board > SHIP_EMPTY
+        return bool(np.all(self.hits[ship_cells])) if ship_cells.any() else False
+
     def display_combined(self) -> None:
         for r in range(self.rows):
             row_cells: List[str] = []
