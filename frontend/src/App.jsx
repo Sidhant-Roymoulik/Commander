@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { newGame, placeShips, playerAttack, aiAttack } from './api'
 import PlacementPhase from './components/PlacementPhase'
 import BattlePhase from './components/BattlePhase'
@@ -16,7 +16,7 @@ function emptyBoard() {
 }
 
 export default function App() {
-  const [phase, setPhase]         = useState('home')       // home | placement | playing | finished
+  const [phase, setPhase]         = useState('loading')    // loading | placement | playing | finished
   const [sessionId, setSessionId] = useState(null)
   const [shipSizes, setShipSizes] = useState([5, 4, 3, 3, 2])
   const [playerBoard, setPlayer]  = useState(emptyBoard())
@@ -27,7 +27,8 @@ export default function App() {
   const [winner, setWinner]       = useState(null)
   const [message, setMessage]     = useState('Your turn — click a cell to fire.')
 
-  const startGame = async () => {
+  const startGame = useCallback(async () => {
+    setPhase('loading')
     const data = await newGame()
     setSessionId(data.session_id)
     setShipSizes(data.ship_sizes)
@@ -38,7 +39,10 @@ export default function App() {
     setWinner(null)
     setMessage('Your turn — click a cell to fire.')
     setPhase('placement')
-  }
+  }, [])
+
+  // Start a game immediately on first load
+  useEffect(() => { startGame() }, [startGame])
 
   const handlePlacementReady = useCallback(async (placements) => {
     const data = await placeShips(sessionId, placements)
@@ -106,17 +110,8 @@ export default function App() {
         <span className="logo-sub">Battleship vs AI</span>
       </header>
 
-      {phase === 'home' && (
-        <div className="home">
-          <h1>Commander</h1>
-          <p className="home-desc">
-            Play Battleship against a CNN trained on 100k games.
-            The AI uses probability maps to hunt your fleet.
-          </p>
-          <button className="btn-primary home-btn" onClick={startGame}>
-            New Game
-          </button>
-        </div>
+      {phase === 'loading' && (
+        <div className="loading">Starting game…</div>
       )}
 
       {phase === 'placement' && (
@@ -145,7 +140,7 @@ export default function App() {
           winner={winner}
           playerBoard={playerBoard}
           aiBoard={aiBoard}
-          onPlayAgain={startGame}
+          onPlayAgain={() => startGame()}
         />
       )}
     </div>

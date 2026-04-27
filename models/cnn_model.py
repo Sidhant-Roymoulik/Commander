@@ -161,11 +161,12 @@ def predict_board(
     if arr.ndim == 3 and arr.shape[-1] in (1, 2, 3):
         arr = np.transpose(arr, (2, 0, 1))
     arr = arr.astype(np.float32)
-    # take first two channels as hits/misses if present
-    if arr.shape[0] >= 2:
-        inp = arr[:2]
+    # Channel order after transpose: [ships=0, hits=1, misses=2] (3-ch) or [hits=0, misses=1] (2-ch)
+    if arr.shape[0] >= 3:
+        inp = arr[1:3]   # hits, misses — skip ships channel
+    elif arr.shape[0] == 2:
+        inp = arr[:2]    # already [hits, misses]
     else:
-        # pad to 2 channels
         inp = np.pad(arr, ((0, 2 - arr.shape[0]), (0, 0), (0, 0)))
 
     inp_tensor = torch.from_numpy(inp).unsqueeze(0).to(device)

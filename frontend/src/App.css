@@ -29,32 +29,8 @@
   opacity: 0.7;
 }
 
-/* ── Home ── */
-.home {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  padding: 60px 16px;
-  text-align: center;
-  max-width: 480px;
-}
-
-.home h1 {
-  font-size: 3rem;
-  font-weight: 900;
-  color: var(--accent);
-  letter-spacing: -0.03em;
-}
-
-.home-desc {
+.loading {
+  margin-top: 80px;
   color: var(--text-dim);
   font-size: 0.95rem;
-  line-height: 1.6;
-}
-
-.home-btn {
-  font-size: 1.1rem;
-  padding: 0.75rem 2.5rem;
-  margin-top: 8px;
 }
