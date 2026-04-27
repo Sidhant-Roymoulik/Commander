@@ -1,0 +1,36 @@
+.end-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 32px 16px;
+}
+
+.result-banner {
+  font-size: 2.8rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  padding: 12px 32px;
+  border-radius: 10px;
+}
+
+.result-banner.win  { color: var(--accent); background: rgba(79,195,247,0.1); }
+.result-banner.loss { color: var(--hit);    background: rgba(229,57,53,0.1); }
+
+.result-sub {
+  font-size: 1rem;
+  color: var(--text-dim);
+}
+
+.end-boards {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.play-again {
+  font-size: 1rem;
+  padding: 0.7rem 2rem;
+  margin-top: 8px;
+}
