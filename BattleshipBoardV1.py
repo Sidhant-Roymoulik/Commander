@@ -152,6 +152,41 @@ class BattleshipBoardV1:
         ship_cells = self.ship_board > SHIP_EMPTY
         return bool(np.all(self.hits[ship_cells])) if ship_cells.any() else False
 
+    def get_sunk_ship_cells(self) -> list:
+        """Return [[row, col], ...] for cells of every completely sunk ship."""
+        result = []
+        for ship_id, ((r1, c1), (r2, c2)) in self.ships:
+            horiz = r1 == r2
+            cells = (
+                [(r1, c) for c in range(c1, c2 + 1)]
+                if horiz
+                else [(r, c1) for r in range(r1, r2 + 1)]
+            )
+            if cells and all(bool(self.hits[r, c]) for r, c in cells):
+                result.extend([int(r), int(c)] for r, c in cells)
+        return result
+
+    def just_sunk_by(self, row: int, col: int) -> list:
+        """After attacking (row, col), return cells of the ship sunk by this hit, or [].
+        Call this immediately after attack()."""
+        if not bool(self.hits[row, col]):
+            return []
+        ship_id = int(self.ship_board[row, col])
+        if ship_id == SHIP_EMPTY:
+            return []
+        for sid, ((r1, c1), (r2, c2)) in self.ships:
+            if sid != ship_id:
+                continue
+            horiz = r1 == r2
+            cells = (
+                [(r1, c) for c in range(c1, c2 + 1)]
+                if horiz
+                else [(r, c1) for r in range(r1, r2 + 1)]
+            )
+            if all(bool(self.hits[r, c]) for r, c in cells):
+                return [[int(r), int(c)] for r, c in cells]
+        return []
+
     def display_combined(self) -> None:
         for r in range(self.rows):
             row_cells: List[str] = []

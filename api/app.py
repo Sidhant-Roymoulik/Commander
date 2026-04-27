@@ -122,6 +122,7 @@ def player_attack(session_id: str, body: AttackRequest):
         raise HTTPException(status_code=422, detail=str(e))
 
     hit = bool(session.ai_board.hits[body.row, body.col])
+    just_sunk = session.ai_board.just_sunk_by(body.row, body.col)
     game_over = session.ai_board.all_ships_sunk()
     if game_over:
         session.phase = "finished"
@@ -131,11 +132,10 @@ def player_attack(session_id: str, body: AttackRequest):
         "row": body.row,
         "col": body.col,
         "hit": hit,
+        "just_sunk": just_sunk,
         "game_over": game_over,
         "winner": session.winner,
-        "ai_board": board_state(
-            session.ai_board, reveal_ships=game_over
-        ),
+        "ai_board": board_state(session.ai_board, reveal_ships=game_over),
     }
 
 
@@ -160,6 +160,7 @@ def ai_attack(session_id: str):
     board.attack(row, col)
 
     hit = bool(board.hits[row, col])
+    just_sunk = board.just_sunk_by(row, col)
     game_over = board.all_ships_sunk()
     if game_over:
         session.phase = "finished"
@@ -169,6 +170,7 @@ def ai_attack(session_id: str):
         "row": row,
         "col": col,
         "hit": hit,
+        "just_sunk": just_sunk,
         "game_over": game_over,
         "winner": session.winner,
         "prob_map": probs.tolist(),

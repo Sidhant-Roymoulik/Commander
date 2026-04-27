@@ -9,6 +9,7 @@ export default function Board({
   hits,
   misses,
   ships,            // 2D int matrix (>0 = ship) or null (hidden)
+  sunkCells = null, // Set of "row,col" strings for completely sunk ships
   onCellClick,
   onCellHover,      // (row, col) | null — called on mouseenter
   onBoardLeave,     // () => void — called when mouse leaves the whole grid
@@ -26,12 +27,14 @@ export default function Board({
       const isHit   = !!hits?.[r]?.[c]
       const isMiss  = !!misses?.[r]?.[c]
       const hasShip = (ships?.[r]?.[c] ?? 0) > 0
+      const isSunk  = isHit && sunkCells?.has(`${r},${c}`)
       const isHL    = highlightCell?.row === r && highlightCell?.col === c
       const isHover = hoverCells?.some(h => h.row === r && h.col === c)
       const prob    = probMap?.[r]?.[c] ?? 0
 
       const cls = ['cell']
-      if (isHit)        cls.push('hit')
+      if (isSunk)       cls.push('sunk')
+      else if (isHit)   cls.push('hit')
       else if (isMiss)  cls.push('miss')
       else if (hasShip) cls.push('ship')
       else              cls.push('water')
@@ -47,7 +50,8 @@ export default function Board({
           onClick={() => !disabled && onCellClick?.(r, c)}
           onMouseEnter={() => onCellHover?.(r, c)}
         >
-          {isHit  && <span className="marker x-mark">✕</span>}
+          {isSunk  && <span className="marker">☠</span>}
+          {!isSunk && isHit  && <span className="marker x-mark">✕</span>}
           {isMiss && <span className="marker dot">•</span>}
         </div>
       )

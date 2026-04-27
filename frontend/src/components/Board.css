@@ -71,6 +71,11 @@
   border: 1px solid #c62828;
 }
 
+.cell.sunk {
+  background: #ff6f00;
+  border: 1px solid #e65100;
+}
+
 .cell.miss {
   background: var(--miss);
   border: 1px solid #455a64;

@@ -20,6 +20,7 @@ export default function EndScreen({ winner, playerBoard, aiBoard, onPlayAgain })
           hits={playerBoard.hits}
           misses={playerBoard.misses}
           ships={playerBoard.ships}
+          sunkCells={playerBoard.sunk}
           label="Your Board"
           disabled
         />
@@ -27,6 +28,7 @@ export default function EndScreen({ winner, playerBoard, aiBoard, onPlayAgain })
           hits={aiBoard.hits}
           misses={aiBoard.misses}
           ships={aiBoard.ships}
+          sunkCells={aiBoard.sunk}
           label="Enemy Board (revealed)"
           disabled
         />

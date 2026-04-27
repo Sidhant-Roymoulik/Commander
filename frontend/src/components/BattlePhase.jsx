@@ -24,6 +24,7 @@ export default function BattlePhase({
             hits={playerBoard.hits}
             misses={playerBoard.misses}
             ships={playerBoard.ships}
+            sunkCells={playerBoard.sunk}
             highlightCell={lastAiAttack}
             probMap={probMap}
             label="Your Board"
@@ -38,7 +39,8 @@ export default function BattlePhase({
           <Board
             hits={aiBoard.hits}
             misses={aiBoard.misses}
-            ships={aiBoard.ships}   // null until game over
+            ships={aiBoard.ships}
+            sunkCells={aiBoard.sunk}
             onCellClick={onPlayerAttack}
             disabled={aiThinking}
             label="Enemy Waters"

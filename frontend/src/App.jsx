@@ -7,16 +7,38 @@ import './App.css'
 
 const ROWS = 10, COLS = 10
 
+const SHIP_NAMES = { 5: 'Carrier', 4: 'Battleship', 3: 'Cruiser', 2: 'Destroyer' }
+
 function emptyBoard() {
   return {
     hits:   Array.from({ length: ROWS }, () => Array(COLS).fill(false)),
     misses: Array.from({ length: ROWS }, () => Array(COLS).fill(false)),
     ships:  null,
+    sunk:   new Set(),
   }
 }
 
+// Convert [[r,c],...] list from API into a Set of "r,c" strings for O(1) lookup
+function sunkSet(cells) {
+  return new Set((cells ?? []).map(([r, c]) => `${r},${c}`))
+}
+
+function boardFromData(data) {
+  return {
+    hits:   data.hits,
+    misses: data.misses,
+    ships:  data.ships,
+    sunk:   sunkSet(data.sunk),
+  }
+}
+
+// Infer ship size from just_sunk cell list
+function sunkShipName(cells) {
+  return SHIP_NAMES[cells.length] ?? `size-${cells.length} ship`
+}
+
 export default function App() {
-  const [phase, setPhase]         = useState('loading')    // loading | placement | playing | finished
+  const [phase, setPhase]         = useState('loading')
   const [sessionId, setSessionId] = useState(null)
   const [shipSizes, setShipSizes] = useState([5, 4, 3, 3, 2])
   const [playerBoard, setPlayer]  = useState(emptyBoard())
@@ -41,36 +63,31 @@ export default function App() {
     setPhase('placement')
   }, [])
 
-  // Start a game immediately on first load
   useEffect(() => { startGame() }, [startGame])
 
   const handlePlacementReady = useCallback(async (placements) => {
     const data = await placeShips(sessionId, placements)
-    setPlayer({
-      hits:   data.player_board.hits,
-      misses: data.player_board.misses,
-      ships:  data.player_board.ships,
-    })
+    setPlayer(boardFromData(data.player_board))
     setPhase('playing')
   }, [sessionId])
 
   const handlePlayerAttack = useCallback(async (row, col) => {
     if (aiThinking) return
 
-    // Player fires
     let data
     try {
       data = await playerAttack(sessionId, row, col)
     } catch {
-      return // already attacked cell — silently ignore
+      return
     }
 
-    setAi({
-      hits:   data.ai_board.hits,
-      misses: data.ai_board.misses,
-      ships:  data.ai_board.ships,
-    })
-    setMessage(data.hit ? '💥 Hit!' : '〇 Miss.')
+    setAi(boardFromData(data.ai_board))
+
+    let msg = data.hit ? '💥 Hit!' : '〇 Miss.'
+    if (data.just_sunk?.length) {
+      msg = `🔥 You sunk the enemy ${sunkShipName(data.just_sunk)}!`
+    }
+    setMessage(msg)
 
     if (data.game_over) {
       setWinner(data.winner)
@@ -78,28 +95,27 @@ export default function App() {
       return
     }
 
-    // AI fires
     setAiThink(true)
-    await new Promise(r => setTimeout(r, 600)) // brief pause for drama
+    await new Promise(r => setTimeout(r, 700))
     const aiData = await aiAttack(sessionId)
     setAiThink(false)
 
     setLastAi({ row: aiData.row, col: aiData.col })
     setProbMap(aiData.prob_map)
-    setPlayer({
-      hits:   aiData.player_board.hits,
-      misses: aiData.player_board.misses,
-      ships:  aiData.player_board.ships,
-    })
+    setPlayer(boardFromData(aiData.player_board))
 
     if (aiData.game_over) {
       setWinner(aiData.winner)
       setPhase('finished')
     } else {
-      setMessage(aiData.hit
-        ? `AI hit your ship at ${String.fromCharCode(65 + aiData.col)}${aiData.row + 1}! Your turn.`
-        : `AI missed at ${String.fromCharCode(65 + aiData.col)}${aiData.row + 1}. Your turn.`
-      )
+      const coord = `${String.fromCharCode(65 + aiData.col)}${aiData.row + 1}`
+      if (aiData.just_sunk?.length) {
+        setMessage(`💀 AI sunk your ${sunkShipName(aiData.just_sunk)}! Your turn.`)
+      } else if (aiData.hit) {
+        setMessage(`AI hit your ship at ${coord}! Your turn.`)
+      } else {
+        setMessage(`AI missed at ${coord}. Your turn.`)
+      }
     }
   }, [sessionId, aiThinking])
 
@@ -108,6 +124,9 @@ export default function App() {
       <header className="app-header">
         <span className="logo-text">⚓ Commander</span>
         <span className="logo-sub">Battleship vs AI</span>
+        {phase === 'playing' && (
+          <button className="btn-secondary new-game-btn" onClick={startGame}>New Game</button>
+        )}
       </header>
 
       {phase === 'loading' && (

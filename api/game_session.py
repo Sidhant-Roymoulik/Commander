@@ -34,4 +34,5 @@ def board_state(board: BattleshipBoardV1, reveal_ships: bool = False) -> dict:
         "hits": board.hits.tolist(),
         "misses": board.misses.tolist(),
         "ships": board.ship_board.tolist() if reveal_ships else None,
+        "sunk": board.get_sunk_ship_cells(),
     }
