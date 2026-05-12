@@ -1,0 +1,15 @@
+.venv
+.vscode
+.claude
+.git
+.pytest_cache
+__pycache__
+*.pyc
+
+frontend/node_modules
+frontend/dist
+
+notebooks/*.ipynb
+notebooks/models/*.pt.*
+
+*.md

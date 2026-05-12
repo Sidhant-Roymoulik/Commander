@@ -6,6 +6,8 @@ from typing import List, Optional
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # Make repo root importable regardless of working directory
@@ -15,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 from BattleshipBoardV1 import BattleshipBoardV1
 from models.cnn_model import load_model, predict_board
 from api.game_session import GameSession, board_state
+from api.targeting import compute_remaining_sizes, build_forbidden_mask, compute_valid_cells
 
 # ---------------------------------------------------------------------------
 # App + CORS
@@ -33,8 +36,8 @@ app.add_middleware(
 # Model — loaded once at startup
 # ---------------------------------------------------------------------------
 
-MODEL_PATH = ROOT / "notebooks" / "models" / "cnn_lr_0.001_hidden_128.pt"
-_model = load_model(str(MODEL_PATH), in_channels=2, hidden=128)
+MODEL_PATH = ROOT / "notebooks" / "models" / "cnn_3ch_best.pt"
+_model = load_model(str(MODEL_PATH))
 _model.eval()
 
 
@@ -146,12 +149,28 @@ def ai_attack(session_id: str):
         raise HTTPException(status_code=400, detail="Not in playing phase")
 
     board = session.player_board
-    probs = predict_board(_model, board.to_numpy_array())  # (10, 10) [0, 1]
 
-    # Zero out already-attacked cells
+    sunk_ch = np.zeros((board.rows, board.cols), dtype=np.float32)
+    for rc in board.get_sunk_ship_cells():
+        sunk_ch[rc[0], rc[1]] = 1.0
+    board_input = np.stack([board.hits.astype(np.float32), board.misses.astype(np.float32), sunk_ch], axis=-1)
+    probs = predict_board(_model, board_input)  # (10, 10) [0, 1]
+
+    # Mask attacked cells, then further restrict to cells where a remaining ship can fit
     attacked = board.hits | board.misses
     probs_masked = probs.copy()
     probs_masked[attacked] = -1.0
+
+    remaining_sizes = compute_remaining_sizes(board)
+    forbidden = build_forbidden_mask(board)
+    valid_cells = compute_valid_cells(board, remaining_sizes, forbidden)
+    probs_masked[~valid_cells] = -1.0
+
+    # Fallback: if the heuristic eliminated all cells (shouldn't occur in a valid game),
+    # revert to the attacked-only mask so the game can finish
+    if probs_masked.max() < 0:
+        probs_masked = probs.copy()
+        probs_masked[attacked] = -1.0
 
     if probs_masked.max() < 0:
         raise HTTPException(status_code=400, detail="No cells left to attack")
@@ -189,3 +208,20 @@ def game_state(session_id: str):
         "player_board": board_state(session.player_board, reveal_ships=True),
         "ai_board": board_state(session.ai_board, reveal_ships=game_over),
     }
+
+
+# ---------------------------------------------------------------------------
+# Static frontend (production — built by `npm run build`)
+# ---------------------------------------------------------------------------
+
+DIST = ROOT / "frontend" / "dist"
+
+if DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(DIST / "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_spa(full_path: str = ""):
+        candidate = DIST / full_path
+        if candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(DIST / "index.html"))

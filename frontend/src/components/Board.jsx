@@ -20,6 +20,24 @@ export default function Board({
   probMap = null,       // 2D float [0,1] heatmap overlay
   label = '',
 }) {
+  // Normalize so the sum of displayed probs across unattacked cells equals a fixed budget.
+  // This keeps overall heat constant regardless of game stage without making equal-prob
+  // boards uniformly orange.
+  const PROB_SUM_TARGET = 5
+
+  let probScale = 1
+  if (probMap) {
+    let sumProb = 0
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!hits?.[r]?.[c] && !misses?.[r]?.[c]) {
+          sumProb += probMap[r][c] ?? 0
+        }
+      }
+    }
+    if (sumProb > 0) probScale = PROB_SUM_TARGET / sumProb
+  }
+
   const cells = []
 
   for (let r = 0; r < rows; r++) {
@@ -30,7 +48,7 @@ export default function Board({
       const isSunk  = isHit && sunkCells?.has(`${r},${c}`)
       const isHL    = highlightCell?.row === r && highlightCell?.col === c
       const isHover = hoverCells?.some(h => h.row === r && h.col === c)
-      const prob    = probMap?.[r]?.[c] ?? 0
+      const prob    = (probMap?.[r]?.[c] ?? 0) * probScale
 
       const cls = ['cell']
       if (isSunk)       cls.push('sunk')
