@@ -1,4 +1,4 @@
-app = "commander"
+app = "commander-battleship"
 primary_region = "iad"
 
 [build]
