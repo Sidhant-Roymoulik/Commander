@@ -8,6 +8,8 @@ and prediction helpers. Input expected as numpy arrays with shape
 from typing import Optional
 import numpy as np
 
+import copy
+
 try:
     import torch
     import torch.nn as nn
@@ -80,14 +82,15 @@ def train_model(
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    pin = device == "cuda"
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=pin)
     val_loader = (
-        DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=pin)
         if val_dataset is not None
         else None
     )
     test_loader = (
-        DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        DataLoader(test_dataset, batch_size=batch_size, shuffle=False, pin_memory=pin)
         if test_dataset is not None
         else None
     )
@@ -96,6 +99,8 @@ def train_model(
     criterion = nn.BCEWithLogitsLoss()
 
     history = {"train": [], "val": [], "test": []}
+    best_test_loss = float("inf")
+    best_state = None
 
     for epoch in range(1, epochs + 1):
         model.train()
@@ -124,20 +129,28 @@ def train_model(
             avg_val_loss = _run_eval(model, val_loader, criterion, device)
             history["val"].append(avg_val_loss)
 
-        # test
+        # test + best-model checkpoint
         avg_test_loss = None
         if test_loader is not None:
             avg_test_loss = _run_eval(model, test_loader, criterion, device)
             history["test"].append(avg_test_loss)
+            if avg_test_loss < best_test_loss:
+                best_test_loss = avg_test_loss
+                best_state = copy.deepcopy(model.state_dict())
 
         # reporting
         report_parts = [f"Epoch {epoch}/{epochs}", f"train_loss: {avg_train_loss:.4f}"]
         if avg_val_loss is not None:
             report_parts.append(f"val_loss: {avg_val_loss:.4f}")
         if avg_test_loss is not None:
-            report_parts.append(f"test_loss: {avg_test_loss:.4f}")
+            marker = " *" if avg_test_loss == best_test_loss else ""
+            report_parts.append(f"test_loss: {avg_test_loss:.4f}{marker}")
 
         print(" - ".join(report_parts))
+
+    # Restore the best weights seen during training
+    if best_state is not None:
+        model.load_state_dict(best_state)
 
     return model, history
 
@@ -145,11 +158,12 @@ def train_model(
 def predict_board(
     model: nn.Module, array: np.ndarray, device: Optional[str] = None
 ) -> np.ndarray:
-    """Predict per-cell ship probability from a single board tensor.
+    """Predict per-cell ship probability from a board tensor.
 
     Args:
         model: trained ShipProbCNN
-        array: np.ndarray shape (H, W, C) or (C, H, W)
+        array: np.ndarray shape (H, W, C) in HWC layout, or (C, H, W) in CHW layout.
+               C must match model's in_channels.
     Returns:
         probs: np.ndarray shape (H, W) with values in [0, 1]
     """
@@ -158,18 +172,11 @@ def predict_board(
     model.eval()
 
     arr = array.copy()
-    if arr.ndim == 3 and arr.shape[-1] in (1, 2, 3):
+    if arr.ndim == 3 and arr.shape[2] in (1, 2, 3, 4):
         arr = np.transpose(arr, (2, 0, 1))
     arr = arr.astype(np.float32)
-    # Channel order after transpose: [ships=0, hits=1, misses=2] (3-ch) or [hits=0, misses=1] (2-ch)
-    if arr.shape[0] >= 3:
-        inp = arr[1:3]   # hits, misses — skip ships channel
-    elif arr.shape[0] == 2:
-        inp = arr[:2]    # already [hits, misses]
-    else:
-        inp = np.pad(arr, ((0, 2 - arr.shape[0]), (0, 0), (0, 0)))
 
-    inp_tensor = torch.from_numpy(inp).unsqueeze(0).to(device)
+    inp_tensor = torch.from_numpy(arr).unsqueeze(0).to(device)
     with torch.no_grad():
         logits = model(inp_tensor)
         probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()
@@ -182,11 +189,15 @@ def save_model(model: nn.Module, path: str):
 
 
 def load_model(
-    path: str, in_channels: int = 2, hidden: int = 32, device: Optional[str] = None
+    path: str, in_channels: Optional[int] = None, hidden: Optional[int] = None, device: Optional[str] = None
 ) -> nn.Module:
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    model = ShipProbCNN(in_channels=in_channels, hidden=hidden)
-    model.load_state_dict(torch.load(path, map_location=device))
+    state = torch.load(path, map_location=device)
+    # Infer architecture from checkpoint weights so the call site doesn't need to know hyperparams
+    detected_in_channels = in_channels or int(state["enc1.weight"].shape[1])
+    detected_hidden      = hidden      or int(state["enc1.weight"].shape[0])
+    model = ShipProbCNN(in_channels=detected_in_channels, hidden=detected_hidden)
+    model.load_state_dict(state)
     model.to(device)
     model.eval()
     return model
