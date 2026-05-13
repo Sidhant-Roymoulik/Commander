@@ -192,7 +192,7 @@ def load_model(
     path: str, in_channels: Optional[int] = None, hidden: Optional[int] = None, device: Optional[str] = None
 ) -> nn.Module:
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    state = torch.load(path, map_location=device)
+    state = torch.load(path, map_location=device, weights_only=True)
     # Infer architecture from checkpoint weights so the call site doesn't need to know hyperparams
     detected_in_channels = in_channels or int(state["enc1.weight"].shape[1])
     detected_hidden      = hidden      or int(state["enc1.weight"].shape[0])
